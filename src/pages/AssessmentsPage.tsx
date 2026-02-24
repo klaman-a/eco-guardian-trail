@@ -1,22 +1,33 @@
 import { mockAssessments } from '@/data/mockData';
+import { useSiteContext } from '@/contexts/SiteContext';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Link } from 'react-router-dom';
 import { Building2, Clock, AlertTriangle, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const AssessmentsPage = () => {
+  const { selectedSite, isGlobalView } = useSiteContext();
+
+  const assessments = isGlobalView
+    ? mockAssessments
+    : mockAssessments.filter(a => a.siteName === selectedSite);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Assessments</h1>
-          <p className="text-sm text-muted-foreground mt-1">All effluent risk assessments across sites</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isGlobalView ? 'All effluent risk assessments across sites' : `Assessments for ${selectedSite}`}
+          </p>
         </div>
-        <Link to="/new-assessment">
-          <Button size="sm" className="gap-1.5">
-            <Plus className="h-4 w-4" /> New Assessment
-          </Button>
-        </Link>
+        {!isGlobalView && (
+          <Link to="/new-assessment">
+            <Button size="sm" className="gap-1.5">
+              <Plus className="h-4 w-4" /> New Assessment
+            </Button>
+          </Link>
+        )}
       </div>
 
       <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
@@ -37,7 +48,7 @@ const AssessmentsPage = () => {
               </tr>
             </thead>
             <tbody>
-              {mockAssessments.map((a) => {
+              {assessments.map((a) => {
                 const nc = a.substances.filter((s) => s.complianceStatus === 'non-compliant').length;
                 return (
                   <tr key={a.id}>
@@ -69,9 +80,7 @@ const AssessmentsPage = () => {
                       <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{a.lastModified}</span>
                     </td>
                     <td>
-                      <Link to={`/assessment/${a.id}`} className="text-xs font-medium text-primary hover:underline">
-                        Open
-                      </Link>
+                      <Link to={`/assessment/${a.id}`} className="text-xs font-medium text-primary hover:underline">Open</Link>
                     </td>
                   </tr>
                 );

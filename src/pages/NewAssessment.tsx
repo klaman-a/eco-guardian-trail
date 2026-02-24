@@ -8,21 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Plus, Trash2, FlaskConical, Save, Send, Paperclip, X, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-const SITES = [
-  'Basel Manufacturing Site',
-  'Dublin API Facility',
-  'Singapore Packaging Center',
-  'Munich R&D Lab',
-];
-
-const PRODUCTS = [
-  { name: 'Metformin Hydrochloride', pnec: 10 },
-  { name: 'Ibuprofen', pnec: 1.65 },
-  { name: 'Amoxicillin Trihydrate', pnec: 0.078 },
-  { name: 'Paracetamol', pnec: 9.2 },
-  { name: 'Diclofenac Sodium', pnec: 0.05 },
-];
+import { useSiteContext } from '@/contexts/SiteContext';
+import { ALL_PRODUCTS, SITE_PRODUCTS } from '@/data/mockData';
 
 function getCurrentQuarter(): string {
   const now = new Date();
@@ -33,10 +20,9 @@ function getCurrentQuarter(): string {
 const CURRENT_PERIOD = getCurrentQuarter();
 const ASSESSMENT_OWNER = 'Dr. Elena Fischer';
 
-// Simplified PEC/PNEC: assumes 0.5kg loss/batch, 500m³/day WW flow, dilution 10
 function calcPecPnec(batches: number, _productPerBatch: number, pnec: number | null): number | null {
   if (!pnec || pnec <= 0 || batches <= 0) return null;
-  const lossPerBatch = 0.5; // kg
+  const lossPerBatch = 0.5;
   const annualLoss = lossPerBatch * batches;
   const dailyLoad = annualLoss / 365;
   const dailyLoadUg = dailyLoad * 1e9;
@@ -67,11 +53,15 @@ const MAX_SECTIONS = 50;
 
 const NewAssessment = () => {
   const navigate = useNavigate();
-  const [site, setSite] = useState('');
+  const { selectedSite } = useSiteContext();
   const [exempt, setExempt] = useState(false);
   const [reuseWastewater, setReuseWastewater] = useState(false);
   const [reuseSludge, setReuseSludge] = useState(false);
   const [sections, setSections] = useState<ProductSection[]>([createSection()]);
+
+  // Products available for the selected site
+  const siteProductNames = selectedSite ? (SITE_PRODUCTS[selectedSite] ?? []) : ALL_PRODUCTS.map(p => p.name);
+  const availableProducts = ALL_PRODUCTS.filter(p => siteProductNames.includes(p.name));
 
   const updateSection = useCallback((id: string, field: keyof ProductSection, value: string | number | File[]) => {
     setSections(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
@@ -106,7 +96,7 @@ const NewAssessment = () => {
           <ArrowLeft className="h-3 w-3" /> Back
         </Link>
         <h1 className="text-2xl font-bold">New Risk Assessment</h1>
-        <p className="text-sm text-muted-foreground mt-1">Create a new effluent risk assessment for a manufacturing site</p>
+        <p className="text-sm text-muted-foreground mt-1">Create a new effluent risk assessment for {selectedSite ?? 'a manufacturing site'}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -115,17 +105,8 @@ const NewAssessment = () => {
           <h2 className="font-semibold text-sm">Site Information</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="site" className="text-xs">Site Name</Label>
-              <Select value={site} onValueChange={setSite} required>
-                <SelectTrigger id="site">
-                  <SelectValue placeholder="Select a site" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover z-50">
-                  {SITES.map(s => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Site Name</Label>
+              <Input value={selectedSite ?? ''} disabled className="bg-muted text-muted-foreground" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Assessment Owner</Label>
@@ -169,6 +150,7 @@ const NewAssessment = () => {
                 section={section}
                 index={index}
                 canRemove={sections.length > 1}
+                products={availableProducts}
                 onUpdate={updateSection}
                 onRemove={removeSection}
                 onAddFiles={addFiles}
@@ -202,7 +184,7 @@ const NewAssessment = () => {
         {/* Actions */}
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={() => navigate('/assessments')}>Cancel</Button>
-          <Button type="button" variant="secondary" className="gap-1.5" onClick={() => { /* save as draft */ navigate('/assessments'); }}>
+          <Button type="button" variant="secondary" className="gap-1.5" onClick={() => navigate('/assessments')}>
             <Save className="h-4 w-4" /> Save Draft
           </Button>
           <Button type="submit" className="gap-1.5">
@@ -220,14 +202,15 @@ interface ProductCardProps {
   section: ProductSection;
   index: number;
   canRemove: boolean;
+  products: { name: string; pnec: number }[];
   onUpdate: (id: string, field: keyof ProductSection, value: string | number | File[]) => void;
   onRemove: (id: string) => void;
   onAddFiles: (id: string, files: File[]) => void;
   onRemoveFile: (sectionId: string, fileIndex: number) => void;
 }
 
-const ProductCard = ({ section, index, canRemove, onUpdate, onRemove, onAddFiles, onRemoveFile }: ProductCardProps) => {
-  const selectedProduct = PRODUCTS.find(p => p.name === section.product);
+const ProductCard = ({ section, index, canRemove, products, onUpdate, onRemove, onAddFiles, onRemoveFile }: ProductCardProps) => {
+  const selectedProduct = products.find(p => p.name === section.product);
   const batches = typeof section.batches === 'number' ? section.batches : 0;
   const productPerBatch = typeof section.productPerBatch === 'number' ? section.productPerBatch : 0;
 
@@ -269,7 +252,6 @@ const ProductCard = ({ section, index, canRemove, onUpdate, onRemove, onAddFiles
         )}
       </div>
 
-      {/* Input fields */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="space-y-1.5">
           <Label className="text-xs">Product</Label>
@@ -278,7 +260,7 @@ const ProductCard = ({ section, index, canRemove, onUpdate, onRemove, onAddFiles
               <SelectValue placeholder="Select product" />
             </SelectTrigger>
             <SelectContent className="bg-popover z-50">
-              {PRODUCTS.map(p => (
+              {products.map(p => (
                 <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
               ))}
             </SelectContent>
@@ -286,28 +268,16 @@ const ProductCard = ({ section, index, canRemove, onUpdate, onRemove, onAddFiles
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Number of Batches</Label>
-          <Input
-            type="number"
-            min={0}
-            placeholder="0"
-            value={section.batches}
-            onChange={(e) => onUpdate(section.id, 'batches', e.target.value === '' ? '' : Number(e.target.value))}
-          />
+          <Input type="number" min={0} placeholder="0" value={section.batches}
+            onChange={(e) => onUpdate(section.id, 'batches', e.target.value === '' ? '' : Number(e.target.value))} />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Product per Batch (kg)</Label>
-          <Input
-            type="number"
-            min={0}
-            step="0.01"
-            placeholder="0"
-            value={section.productPerBatch}
-            onChange={(e) => onUpdate(section.id, 'productPerBatch', e.target.value === '' ? '' : Number(e.target.value))}
-          />
+          <Input type="number" min={0} step="0.01" placeholder="0" value={section.productPerBatch}
+            onChange={(e) => onUpdate(section.id, 'productPerBatch', e.target.value === '' ? '' : Number(e.target.value))} />
         </div>
       </div>
 
-      {/* Calculated fields */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Total Product (kg)</Label>
@@ -318,11 +288,9 @@ const ProductCard = ({ section, index, canRemove, onUpdate, onRemove, onAddFiles
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">PEC / PNEC</Label>
           <div className={`h-10 flex items-center px-3 rounded-md border text-sm font-medium font-mono ${
-            pecPnec === null
-              ? 'bg-accent/50 border-accent text-accent-foreground'
-              : isCompliant
-                ? 'bg-success/10 border-success/30 text-success'
-                : 'bg-danger/10 border-danger/30 text-danger'
+            pecPnec === null ? 'bg-accent/50 border-accent text-accent-foreground'
+              : isCompliant ? 'bg-success/10 border-success/30 text-success'
+              : 'bg-danger/10 border-danger/30 text-danger'
           }`}>
             {pecPnec !== null ? pecPnec.toFixed(4) : '—'}
             {isCompliant && <span className="ml-2 text-xs opacity-75">Compliant</span>}
@@ -335,21 +303,10 @@ const ProductCard = ({ section, index, canRemove, onUpdate, onRemove, onAddFiles
       <div className="space-y-2 pt-1 border-t border-border/50">
         <div className="flex items-center justify-between">
           <Label className="text-xs text-muted-foreground">Supporting Evidence</Label>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.txt"
-            onChange={handleFileChange}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
-            onClick={() => fileInputRef.current?.click()}
-          >
+          <input ref={fileInputRef} type="file" multiple className="hidden"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.txt" onChange={handleFileChange} />
+          <Button type="button" variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+            onClick={() => fileInputRef.current?.click()}>
             <Paperclip className="h-3 w-3" /> Attach file
           </Button>
         </div>
@@ -360,11 +317,7 @@ const ProductCard = ({ section, index, canRemove, onUpdate, onRemove, onAddFiles
                 <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <span className="truncate flex-1">{file.name}</span>
                 <span className="text-muted-foreground shrink-0">{formatFileSize(file.size)}</span>
-                <button
-                  type="button"
-                  className="text-muted-foreground hover:text-destructive shrink-0"
-                  onClick={() => onRemoveFile(section.id, fi)}
-                >
+                <button type="button" className="text-muted-foreground hover:text-destructive shrink-0" onClick={() => onRemoveFile(section.id, fi)}>
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>

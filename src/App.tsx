@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
+import { SiteProvider } from "@/contexts/SiteContext";
 import Index from "./pages/Index";
 import AssessmentsPage from "./pages/AssessmentsPage";
 import AssessmentDetail from "./pages/AssessmentDetail";
@@ -18,15 +19,17 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AppLayout>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/assessments" element={<AssessmentsPage />} />
-            <Route path="/assessment/:id" element={<AssessmentDetail />} />
-            <Route path="/new-assessment" element={<NewAssessment />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AppLayout>
+        <SiteProvider>
+          <AppLayout>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/assessments" element={<AssessmentsPage />} />
+              <Route path="/assessment/:id" element={<AssessmentDetail />} />
+              <Route path="/new-assessment" element={<NewAssessment />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AppLayout>
+        </SiteProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
