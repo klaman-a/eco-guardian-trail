@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Trash2, FlaskConical } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, FlaskConical, Save, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const SITES = [
@@ -24,7 +24,13 @@ const PRODUCTS = [
   { name: 'Diclofenac Sodium', pnec: 0.05 },
 ];
 
-const CURRENT_PERIOD = '2025';
+function getCurrentQuarter(): string {
+  const now = new Date();
+  const q = Math.ceil((now.getMonth() + 1) / 3);
+  return `Q${q} ${now.getFullYear()}`;
+}
+
+const CURRENT_PERIOD = getCurrentQuarter();
 const ASSESSMENT_OWNER = 'Dr. Elena Fischer';
 
 // Simplified PEC/PNEC: assumes 0.5kg loss/batch, 500m³/day WW flow, dilution 10
@@ -184,8 +190,11 @@ const NewAssessment = () => {
         {/* Actions */}
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={() => navigate('/assessments')}>Cancel</Button>
+          <Button type="button" variant="secondary" className="gap-1.5" onClick={() => { /* save as draft */ navigate('/assessments'); }}>
+            <Save className="h-4 w-4" /> Save Draft
+          </Button>
           <Button type="submit" className="gap-1.5">
-            <Plus className="h-4 w-4" /> Create Assessment
+            <Send className="h-4 w-4" /> Submit Assessment
           </Button>
         </div>
       </form>
