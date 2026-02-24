@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Trash2, FlaskConical, Save, Send } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, FlaskConical, Save, Send, Paperclip, X, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const SITES = [
@@ -51,6 +51,7 @@ interface ProductSection {
   product: string;
   batches: number | '';
   productPerBatch: number | '';
+  files: File[];
 }
 
 let nextId = 1;
@@ -59,6 +60,7 @@ const createSection = (): ProductSection => ({
   product: '',
   batches: '',
   productPerBatch: '',
+  files: [],
 });
 
 const MAX_SECTIONS = 50;
@@ -71,8 +73,16 @@ const NewAssessment = () => {
   const [reuseSludge, setReuseSludge] = useState(false);
   const [sections, setSections] = useState<ProductSection[]>([createSection()]);
 
-  const updateSection = useCallback((id: string, field: keyof ProductSection, value: string | number) => {
+  const updateSection = useCallback((id: string, field: keyof ProductSection, value: string | number | File[]) => {
     setSections(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
+  }, []);
+
+  const addFiles = useCallback((id: string, newFiles: File[]) => {
+    setSections(prev => prev.map(s => s.id === id ? { ...s, files: [...s.files, ...newFiles] } : s));
+  }, []);
+
+  const removeFile = useCallback((sectionId: string, fileIndex: number) => {
+    setSections(prev => prev.map(s => s.id === sectionId ? { ...s, files: s.files.filter((_, i) => i !== fileIndex) } : s));
   }, []);
 
   const addSection = useCallback(() => {
@@ -161,6 +171,8 @@ const NewAssessment = () => {
                 canRemove={sections.length > 1}
                 onUpdate={updateSection}
                 onRemove={removeSection}
+                onAddFiles={addFiles}
+                onRemoveFile={removeFile}
               />
             ))}
 
@@ -208,11 +220,13 @@ interface ProductCardProps {
   section: ProductSection;
   index: number;
   canRemove: boolean;
-  onUpdate: (id: string, field: keyof ProductSection, value: string | number) => void;
+  onUpdate: (id: string, field: keyof ProductSection, value: string | number | File[]) => void;
   onRemove: (id: string) => void;
+  onAddFiles: (id: string, files: File[]) => void;
+  onRemoveFile: (sectionId: string, fileIndex: number) => void;
 }
 
-const ProductCard = ({ section, index, canRemove, onUpdate, onRemove }: ProductCardProps) => {
+const ProductCard = ({ section, index, canRemove, onUpdate, onRemove, onAddFiles, onRemoveFile }: ProductCardProps) => {
   const selectedProduct = PRODUCTS.find(p => p.name === section.product);
   const batches = typeof section.batches === 'number' ? section.batches : 0;
   const productPerBatch = typeof section.productPerBatch === 'number' ? section.productPerBatch : 0;
@@ -225,6 +239,21 @@ const ProductCard = ({ section, index, canRemove, onUpdate, onRemove }: ProductC
 
   const isCompliant = pecPnec !== null && pecPnec < 1.0;
   const isNonCompliant = pecPnec !== null && pecPnec >= 1.0;
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      onAddFiles(section.id, Array.from(e.target.files));
+      e.target.value = '';
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1048576).toFixed(1)} MB`;
+  };
 
   return (
     <div className="bg-card rounded-lg border border-border p-5 space-y-4">
@@ -300,6 +329,50 @@ const ProductCard = ({ section, index, canRemove, onUpdate, onRemove }: ProductC
             {isNonCompliant && <span className="ml-2 text-xs opacity-75">Non-compliant</span>}
           </div>
         </div>
+      </div>
+
+      {/* Supporting Evidence */}
+      <div className="space-y-2 pt-1 border-t border-border/50">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-muted-foreground">Supporting Evidence</Label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.txt"
+            onChange={handleFileChange}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Paperclip className="h-3 w-3" /> Attach file
+          </Button>
+        </div>
+        {section.files.length > 0 ? (
+          <div className="space-y-1.5">
+            {section.files.map((file, fi) => (
+              <div key={fi} className="flex items-center gap-2 text-xs bg-muted/50 rounded-md px-3 py-2">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="truncate flex-1">{file.name}</span>
+                <span className="text-muted-foreground shrink-0">{formatFileSize(file.size)}</span>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={() => onRemoveFile(section.id, fi)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground/60 italic">No files attached</p>
+        )}
       </div>
     </div>
   );
