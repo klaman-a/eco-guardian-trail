@@ -8,9 +8,11 @@ interface MetricCardProps {
   icon?: LucideIcon;
   trend?: 'up' | 'down' | 'neutral';
   variant?: 'default' | 'success' | 'warning' | 'danger';
+  active?: boolean;
+  onClick?: () => void;
 }
 
-export function MetricCard({ title, value, subtitle, icon: Icon, variant = 'default' }: MetricCardProps) {
+export function MetricCard({ title, value, subtitle, icon: Icon, variant = 'default', active, onClick }: MetricCardProps) {
   const accentColors = {
     default: 'border-l-primary',
     success: 'border-l-success',
@@ -19,7 +21,17 @@ export function MetricCard({ title, value, subtitle, icon: Icon, variant = 'defa
   };
 
   return (
-    <div className={cn('metric-card border-l-4 animate-fade-in', accentColors[variant])}>
+    <div
+      className={cn(
+        'metric-card border-l-4 animate-fade-in',
+        accentColors[variant],
+        onClick && 'cursor-pointer',
+        active && 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+      )}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{title}</p>

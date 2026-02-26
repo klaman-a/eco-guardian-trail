@@ -9,15 +9,54 @@ import {
   X,
   Globe,
   Building2,
+  Bell,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useSiteContext, SITES } from '@/contexts/SiteContext';
+import { mockAssessments, CURRENT_QUARTER, filterByQuarter } from '@/data/mockData';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { selectedSite, setSelectedSite, isGlobalView } = useSiteContext();
+
+  // Notifications logic
+  const notifications = useMemo(() => {
+    const currentAssessments = filterByQuarter(mockAssessments, CURRENT_QUARTER.year, CURRENT_QUARTER.quarter);
+    const items: { id: string; title: string; description: string; link: string; type: 'action' | 'review' }[] = [];
+
+    if (isGlobalView) {
+      // Global user: pending reviews to approve
+      currentAssessments
+        .filter(a => a.status === 'pending-review')
+        .forEach(a => {
+          items.push({
+            id: a.id,
+            title: `Review: ${a.siteName}`,
+            description: `${a.id} · ${a.reportingPeriod} awaiting approval`,
+            link: `/assessment/${a.id}`,
+            type: 'review',
+          });
+        });
+    } else {
+      // Site user: drafts to submit
+      currentAssessments
+        .filter(a => a.siteName === selectedSite && (a.status === 'draft'))
+        .forEach(a => {
+          items.push({
+            id: a.id,
+            title: `Complete Assessment`,
+            description: `${a.id} · ${a.operationalUnit} is still in draft`,
+            link: `/assessment/${a.id}`,
+            type: 'action',
+          });
+        });
+    }
+    return items;
+  }, [isGlobalView, selectedSite]);
 
   const navItems = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard, always: true },
@@ -70,8 +109,49 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          {/* Site / Global switcher */}
+          {/* Right side: notifications + site switcher + avatar */}
           <div className="ml-auto flex items-center gap-3">
+            {/* Notifications */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="relative p-1.5 rounded-md hover:bg-muted transition-colors">
+                  <Bell className="h-4.5 w-4.5 text-muted-foreground" />
+                  {notifications.length > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-danger text-[10px] font-bold text-danger-foreground">
+                      {notifications.length}
+                    </span>
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-0 bg-popover z-50" align="end">
+                <div className="px-4 py-3 border-b border-border">
+                  <p className="text-sm font-semibold">Notifications</p>
+                  <p className="text-xs text-muted-foreground">
+                    {notifications.length === 0 ? 'You\'re all caught up!' : `${notifications.length} action${notifications.length > 1 ? 's' : ''} required`}
+                  </p>
+                </div>
+                <div className="max-h-64 overflow-y-auto">
+                  {notifications.map(n => (
+                    <Link
+                      key={n.id}
+                      to={n.link}
+                      className="flex items-start gap-3 px-4 py-3 hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0"
+                    >
+                      <div className={cn(
+                        'mt-0.5 h-2 w-2 rounded-full shrink-0',
+                        n.type === 'review' ? 'bg-warning' : 'bg-primary'
+                      )} />
+                      <div>
+                        <p className="text-sm font-medium">{n.title}</p>
+                        <p className="text-xs text-muted-foreground">{n.description}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* Site / Global switcher */}
             <div className="flex items-center gap-2">
               {isGlobalView ? (
                 <Globe className="h-4 w-4 text-muted-foreground" />
