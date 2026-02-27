@@ -1,4 +1,28 @@
-import { Assessment, DrugSubstance, ChecklistItem, calculateSubstanceMetrics } from '@/types/assessment';
+import { Assessment, DrugSubstance, ChecklistItem, AttachmentInfo, calculateSubstanceMetrics } from '@/types/assessment';
+
+// ── Mock attachments ──
+const mockAttachments: Record<string, AttachmentInfo[]> = {
+  'RA-2025-001': [
+    { name: 'Metformin_PNEC_Review_2025.pdf', size: '2.4 MB', type: 'pdf', uploadedDate: '2025-01-20', substanceId: 'b1' },
+    { name: 'Ibuprofen_Ecotox_Data.xlsx', size: '1.1 MB', type: 'xlsx', uploadedDate: '2025-01-22', substanceId: 'b2' },
+    { name: 'WW_Treatment_Certificate.pdf', size: '890 KB', type: 'pdf', uploadedDate: '2025-02-15' },
+    { name: 'Amoxicillin_ERA_Study.pdf', size: '4.2 MB', type: 'pdf', uploadedDate: '2025-02-20', substanceId: 'b3' },
+  ],
+  'RA-2025-002': [
+    { name: 'Diclofenac_EU_WatchList.pdf', size: '3.1 MB', type: 'pdf', uploadedDate: '2025-01-25', substanceId: 'd1' },
+    { name: 'CAPA_Diclofenac_Plan.docx', size: '520 KB', type: 'docx', uploadedDate: '2025-02-28' },
+    { name: 'Cipro_Elimination_Evidence.pdf', size: '1.8 MB', type: 'pdf', uploadedDate: '2025-02-10', substanceId: 'd3' },
+  ],
+  'RA-2025-003': [
+    { name: 'Paracetamol_NoConcern_Justification.pdf', size: '750 KB', type: 'pdf', uploadedDate: '2025-02-01', substanceId: 's1' },
+  ],
+  'RA-2025-005': [
+    { name: 'Omeprazole_Draft_Data.csv', size: '340 KB', type: 'csv', uploadedDate: '2025-03-01', substanceId: 'b4' },
+  ],
+  'RA-2025-008': [
+    { name: 'RnD_Batch_Records_Q1.xlsx', size: '1.5 MB', type: 'xlsx', uploadedDate: '2025-03-10' },
+  ],
+};
 
 // ── Products with PNEC data ──
 export interface ProductInfo {
@@ -88,7 +112,7 @@ export const mockAssessments: Assessment[] = [
       makeSub('b3','Amoxicillin Trihydrate','61336-70-7',0.078,'Ecotox Lit',80,100,0.15,3,2,500,40,0.05,10),
     ],
     exempt: false, comments: 'Annual review completed.', checklistComplete: true,
-    reuseWastewater: false, reuseSludge: false,
+    reuseWastewater: false, reuseSludge: false, attachments: mockAttachments['RA-2025-001'],
   },
   // Basel – draft
   {
@@ -101,7 +125,7 @@ export const mockAssessments: Assessment[] = [
       makeSub('b5','Losartan Potassium','124750-99-8',3.8,'FDA ERA',40,90,0.08,0,0,400,0,null,10),
     ],
     exempt: false, comments: '', checklistComplete: false,
-    reuseWastewater: false, reuseSludge: false,
+    reuseWastewater: false, reuseSludge: false, attachments: mockAttachments['RA-2025-005'],
   },
   // Dublin – pending-review, has non-compliant
   {
@@ -115,7 +139,7 @@ export const mockAssessments: Assessment[] = [
       makeSub('d3','Ciprofloxacin HCl','86393-32-0',0.089,'EMA',45,110,0.12,3,5,500,50,0.04,10),
     ],
     exempt: false, comments: 'Diclofenac flagged – CAPA initiated.', checklistComplete: false,
-    reuseWastewater: false, reuseSludge: false,
+    reuseWastewater: false, reuseSludge: false, attachments: mockAttachments['RA-2025-002'],
   },
   // Singapore – draft
   {
@@ -128,7 +152,7 @@ export const mockAssessments: Assessment[] = [
       makeSub('s2','Cetirizine Dihydrochloride','83881-52-1',6.1,'FDA',30,80,0.04,0,0,500,0,null,10),
     ],
     exempt: false, comments: '', checklistComplete: false,
-    reuseWastewater: false, reuseSludge: false,
+    reuseWastewater: false, reuseSludge: false, attachments: mockAttachments['RA-2025-003'],
   },
   // Munich – exempt
   {
@@ -152,7 +176,7 @@ export const mockAssessments: Assessment[] = [
       makeSub('m2','Atorvastatin Calcium','134523-03-8',0.12,'Published Lit',8,25,0.01,0,0,100,0,null,10),
     ],
     exempt: false, comments: 'Small-scale R&D batches.', checklistComplete: false,
-    reuseWastewater: false, reuseSludge: false,
+    reuseWastewater: false, reuseSludge: false, attachments: mockAttachments['RA-2025-008'],
   },
 
   // ═══ Q4 2024 ═══

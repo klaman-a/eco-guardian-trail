@@ -3,13 +3,14 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
   FileText,
-  Plus,
+  ClipboardCheck,
   Shield,
   Menu,
   X,
   Globe,
   Building2,
   Bell,
+  Settings,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useSiteContext, SITES } from '@/contexts/SiteContext';
@@ -29,7 +30,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const items: { id: string; title: string; description: string; link: string; type: 'action' | 'review' }[] = [];
 
     if (isGlobalView) {
-      // Global user: pending reviews to approve
       currentAssessments
         .filter(a => a.status === 'pending-review')
         .forEach(a => {
@@ -42,7 +42,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           });
         });
     } else {
-      // Site user: drafts to submit
       currentAssessments
         .filter(a => a.siteName === selectedSite && (a.status === 'draft'))
         .forEach(a => {
@@ -59,12 +58,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, [isGlobalView, selectedSite]);
 
   const navItems = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard, always: true },
-    { to: '/assessments', label: 'Assessments', icon: FileText, always: true },
-    { to: '/new-assessment', label: 'New Assessment', icon: Plus, always: false },
+    { to: '/', label: 'Dashboard', icon: LayoutDashboard, show: true },
+    { to: '/assessments', label: 'Assessments', icon: FileText, show: true },
+    { to: '/active-assessment', label: 'Active Assessment', icon: ClipboardCheck, show: true },
+    { to: '/admin', label: 'Admin', icon: Settings, show: isGlobalView },
   ];
 
-  const visibleNav = navItems.filter(item => item.always || !isGlobalView);
+  const visibleNav = navItems.filter(item => item.show);
 
   return (
     <div className="min-h-screen bg-background">
@@ -109,7 +109,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          {/* Right side: notifications + site switcher + avatar */}
+          {/* Right side */}
           <div className="ml-auto flex items-center gap-3">
             {/* Notifications */}
             <Popover>
@@ -182,7 +182,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </Select>
             </div>
             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
-              EF
+              {isGlobalView ? 'MS' : 'EF'}
             </div>
           </div>
         </div>

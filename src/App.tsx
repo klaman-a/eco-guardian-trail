@@ -9,6 +9,8 @@ import Index from "./pages/Index";
 import AssessmentsPage from "./pages/AssessmentsPage";
 import AssessmentDetail from "./pages/AssessmentDetail";
 import NewAssessment from "./pages/NewAssessment";
+import ActiveAssessment from "./pages/ActiveAssessment";
+import AdminPanel from "./pages/AdminPanel";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +28,8 @@ const App = () => (
               <Route path="/assessments" element={<AssessmentsPage />} />
               <Route path="/assessment/:id" element={<AssessmentDetail />} />
               <Route path="/new-assessment" element={<NewAssessment />} />
+              <Route path="/active-assessment" element={<ActiveAssessment />} />
+              <Route path="/admin" element={<AdminPanel />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AppLayout>
