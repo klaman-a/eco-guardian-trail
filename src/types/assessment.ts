@@ -1,6 +1,6 @@
 export type ComplianceStatus = 'compliant' | 'non-compliant' | 'pending' | 'draft' | 'exempt';
 export type AssessmentStep = 'step1' | 'step2';
-export type ApprovalStatus = 'draft' | 'pending-review' | 'approved' | 'locked';
+export type ApprovalStatus = 'not-started' | 'draft' | 'submitted' | 'pending-review' | 'approved' | 'locked';
 
 export interface DrugSubstance {
   id: string;
@@ -48,6 +48,14 @@ export interface DrugSubstance {
   assessmentStep?: AssessmentStep;
 }
 
+export interface AttachmentInfo {
+  name: string;
+  size: string;
+  type: string;
+  uploadedDate: string;
+  substanceId?: string;
+}
+
 export interface Assessment {
   id: string;
   siteName: string;
@@ -66,6 +74,7 @@ export interface Assessment {
   checklistComplete: boolean;
   reuseWastewater: boolean;
   reuseSludge: boolean;
+  attachments?: AttachmentInfo[];
 }
 
 export interface ChecklistItem {
