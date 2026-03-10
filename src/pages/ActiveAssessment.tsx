@@ -14,11 +14,8 @@ import {
 const ActiveAssessment = () => {
   const { selectedSite, isGlobalView } = useSiteContext();
 
-  if (isGlobalView) {
-    return <Navigate to="/" replace />;
-  }
-
   const assessment = useMemo(() => {
+    if (isGlobalView) return null;
     const all = filterByQuarter(mockAssessments, CURRENT_QUARTER.year, CURRENT_QUARTER.quarter);
     return all.find(a => a.siteName === selectedSite) ?? null;
   }, [selectedSite]);
