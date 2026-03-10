@@ -1,29 +1,14 @@
 import { useParams, Link } from 'react-router-dom';
-import { useState, useMemo } from 'react';
-import { mockAssessments, defaultChecklist } from '@/data/mockData';
+import { useMemo } from 'react';
+import { mockAssessments } from '@/data/mockData';
 import { useSiteContext } from '@/contexts/SiteContext';
-import { StatusBadge } from '@/components/StatusBadge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { SubstanceTable } from '@/components/SubstanceTable';
-import { SiteSummary } from '@/components/SiteSummary';
+import { StatusBadge, RiskBadge } from '@/components/StatusBadge';
+import { getEditButtonText } from '@/types/assessment';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ChecklistItem } from '@/types/assessment';
 import {
-  ArrowLeft,
-  Building2,
-  Calendar,
-  User,
-  FileText,
-  Shield,
-  AlertTriangle,
-  Droplets,
-  Recycle,
-  Download,
-  Edit3,
-  CheckCircle2,
-  Paperclip,
-  ClipboardList,
+  ArrowLeft, Calendar, User, FileText, Shield,
+  AlertTriangle, Recycle, Download, Edit3, CheckCircle2,
+  Plus, Lock, Paperclip,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -31,36 +16,6 @@ const AssessmentDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { isGlobalView } = useSiteContext();
   const assessment = mockAssessments.find((a) => a.id === id);
-
-  // Auto-populating checklist based on assessment state
-  const autoChecklist = useMemo(() => {
-    if (!assessment) return defaultChecklist;
-    const items = defaultChecklist.map(item => {
-      let completed = false;
-      switch (item.id) {
-        case 'c1': completed = assessment.substances.length > 0 || assessment.exempt; break;
-        case 'c2': completed = assessment.substances.every(s => s.pnecValue !== null && s.pnecValue > 0); break;
-        case 'c3': completed = assessment.substances.every(s => s.batchesPerYear > 0); break;
-        case 'c4': completed = assessment.substances.every(s => (s.wastewaterFlow ?? 0) > 0); break;
-        case 'c5': completed = assessment.substances.every(s => (s.dilutionFactor ?? 0) > 0); break;
-        case 'c6': completed = (assessment.attachments?.length ?? 0) > 0; break;
-        case 'c7': {
-          const ncSubs = assessment.substances.filter(s => s.complianceStatus === 'non-compliant');
-          completed = ncSubs.length === 0 || assessment.status === 'approved';
-          break;
-        }
-        case 'c8': completed = !!assessment.owner && !!assessment.siteHSEO; break;
-        case 'c9': completed = true; break;
-        case 'c10': completed = assessment.status === 'approved' || assessment.status === 'pending-review'; break;
-      }
-      return { ...item, completed };
-    });
-    return items;
-  }, [assessment]);
-
-  const [checkItems, setCheckItems] = useState<ChecklistItem[]>(autoChecklist);
-  const completedCount = checkItems.filter(i => i.completed).length;
-  const totalCount = checkItems.length;
 
   if (!assessment) {
     return (
@@ -72,15 +27,18 @@ const AssessmentDetail = () => {
   }
 
   const isCurrentQuarter = assessment.reportingPeriod.includes('2025');
-  const canEdit = !isGlobalView && isCurrentQuarter && ['draft', 'not-started'].includes(assessment.status);
+  const editText = !isGlobalView && isCurrentQuarter ? getEditButtonText(assessment.status, assessment.reviewStarted) : null;
   const canApprove = isGlobalView && assessment.status === 'pending-review';
+
+  const generalAttachments = (assessment.attachments || []).filter(a => !a.substanceId);
+  const getSubstanceAttachments = (subId: string) => (assessment.attachments || []).filter(a => a.substanceId === subId);
 
   const handleApprove = () => {
     toast({ title: 'Assessment Approved', description: `${assessment.id} has been approved.` });
   };
 
-  const handleDownloadAttachment = (name: string) => {
-    const blob = new Blob([`Mock file content for ${name}`], { type: 'application/octet-stream' });
+  const handleDownload = (name: string) => {
+    const blob = new Blob([`Mock content for ${name}`], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -89,11 +47,18 @@ const AssessmentDetail = () => {
     URL.revokeObjectURL(url);
   };
 
-  const toggleCheckItem = (itemId: string) => {
-    setCheckItems(prev => prev.map(i => i.id === itemId ? { ...i, completed: !i.completed } : i));
+  const handleDownloadPDF = () => {
+    const blob = new Blob([`Assessment Report\n\n${assessment.id}\n${assessment.siteName}\n${assessment.reportingPeriod}\n\nSubstances:\n${
+      assessment.substances.map(s => `${s.inn} (CAS ${s.casNumber}) - PEC/PNEC: ${s.pecPnec?.toFixed(3) ?? 'N/A'} - ${s.complianceStatus}`).join('\n')
+    }`], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${assessment.id}-report.pdf`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Report Downloaded', description: 'Assessment report has been downloaded.' });
   };
-
-  const categories = [...new Set(checkItems.map(i => i.category))];
 
   return (
     <div className="space-y-6">
@@ -111,18 +76,24 @@ const AssessmentDetail = () => {
             <p className="text-sm text-muted-foreground">{assessment.operationalUnit}</p>
           </div>
           <div className="flex items-center gap-2">
-            {canEdit && (
-              <Link to="/new-assessment">
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  <Edit3 className="h-3.5 w-3.5" /> Edit Data
+            {editText && (
+              <Link to="/data-entry">
+                <Button variant={editText === 'Request Edit' ? 'outline' : 'default'} size="sm" className="gap-1.5">
+                  {editText === 'Request Edit' ? <Lock className="h-3.5 w-3.5" /> :
+                   editText === 'Enter Data' ? <Plus className="h-3.5 w-3.5" /> :
+                   <Edit3 className="h-3.5 w-3.5" />}
+                  {editText}
                 </Button>
               </Link>
             )}
             {canApprove && (
               <Button size="sm" className="gap-1.5" onClick={handleApprove}>
-                <CheckCircle2 className="h-3.5 w-3.5" /> Approve Assessment
+                <CheckCircle2 className="h-3.5 w-3.5" /> Approve
               </Button>
             )}
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadPDF}>
+              <Download className="h-3.5 w-3.5" /> Download Report
+            </Button>
           </div>
         </div>
         <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mt-2">
@@ -130,10 +101,15 @@ const AssessmentDetail = () => {
           <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{assessment.reportingPeriod}</span>
           <span className="flex items-center gap-1"><User className="h-3.5 w-3.5" />Owner: {assessment.owner}</span>
           <span className="flex items-center gap-1"><User className="h-3.5 w-3.5" />HSEO: {assessment.siteHSEO}</span>
+          {isGlobalView && (
+            <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded">
+              Formula {assessment.formulaVersion} · Calc {assessment.calculationVersion}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Flags */}
+      {/* Exempt flag */}
       {assessment.exempt && (
         <div className="p-4 rounded-lg bg-muted border border-border">
           <div className="flex items-start gap-2">
@@ -146,12 +122,13 @@ const AssessmentDetail = () => {
         </div>
       )}
 
+      {/* Reuse flags */}
       {(assessment.reuseWastewater || assessment.reuseSludge) && (
         <div className="p-4 rounded-lg bg-warning/5 border border-warning/20">
           <div className="flex items-start gap-2">
             <Recycle className="h-4 w-4 text-warning mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-warning-foreground">Special Reuse Flags</p>
+              <p className="text-sm font-medium">Special Reuse Flags</p>
               {assessment.reuseWastewater && <p className="text-xs text-muted-foreground">• Treated wastewater reused for irrigation</p>}
               {assessment.reuseSludge && <p className="text-xs text-muted-foreground">• Sludge/biomass reused for land application</p>}
             </div>
@@ -159,158 +136,113 @@ const AssessmentDetail = () => {
         </div>
       )}
 
-      {/* Tabs */}
-      {!assessment.exempt && (
-        <Tabs defaultValue="substances" className="space-y-4">
-          <TabsList className="bg-muted">
-            <TabsTrigger value="substances" className="gap-1.5">
-              <Droplets className="h-3.5 w-3.5" /> Substances
-            </TabsTrigger>
-            <TabsTrigger value="summary" className="gap-1.5">
-              <Building2 className="h-3.5 w-3.5" /> Site Summary
-            </TabsTrigger>
-            <TabsTrigger value="attachments" className="gap-1.5">
-              <Paperclip className="h-3.5 w-3.5" /> Attachments
-              {(assessment.attachments?.length ?? 0) > 0 && (
-                <span className="ml-1 text-xs bg-primary/10 text-primary px-1.5 rounded-full">
-                  {assessment.attachments?.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="checklist" className="gap-1.5">
-              <ClipboardList className="h-3.5 w-3.5" /> Checklist
-              <span className="ml-1 text-xs bg-muted-foreground/10 text-muted-foreground px-1.5 rounded-full">
-                {completedCount}/{totalCount}
-              </span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="substances">
-            <SubstanceTable substances={assessment.substances} />
-          </TabsContent>
-
-          <TabsContent value="summary">
-            <SiteSummary assessment={assessment} />
-          </TabsContent>
-
-          <TabsContent value="attachments">
-            <div className="bg-card rounded-lg border border-border shadow-sm">
-              <div className="px-5 py-4 border-b border-border">
-                <h3 className="text-sm font-semibold">Supporting Documents</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Evidence and documentation uploaded during data entry
-                </p>
-              </div>
-              <div className="divide-y divide-border/50">
-                {(!assessment.attachments || assessment.attachments.length === 0) ? (
-                  <div className="p-8 text-center">
-                    <Paperclip className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                    <p className="text-sm text-muted-foreground">No attachments uploaded</p>
+      {/* General Attachments */}
+      {generalAttachments.length > 0 && (
+        <div className="bg-card rounded-lg border border-border shadow-sm">
+          <div className="px-5 py-3.5 border-b border-border flex items-center gap-2">
+            <Paperclip className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Site-Level Attachments</h3>
+          </div>
+          <div className="divide-y divide-border/50">
+            {generalAttachments.map((att, i) => (
+              <div key={i} className="flex items-center justify-between px-5 py-3 hover:bg-accent/30 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <FileText className="h-4 w-4 text-primary" />
                   </div>
-                ) : (
-                  assessment.attachments.map((att, i) => {
-                    const substance = att.substanceId
-                      ? assessment.substances.find(s => s.id === att.substanceId)
-                      : null;
-                    return (
-                      <div key={i} className="flex items-center justify-between px-5 py-3 hover:bg-accent/30 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <FileText className="h-4 w-4 text-primary" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">{att.name}</p>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>{att.size}</span>
-                              <span>·</span>
-                              <span>Uploaded {att.uploadedDate}</span>
-                              {substance && (
-                                <>
-                                  <span>·</span>
-                                  <span className="text-primary">{substance.inn}</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
+                  <div>
+                    <p className="text-sm font-medium">{att.name}</p>
+                    <p className="text-xs text-muted-foreground">{att.size} · Uploaded {att.uploadedDate}</p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={() => handleDownload(att.name)}>
+                  <Download className="h-3.5 w-3.5" /> Download
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Substance Table */}
+      {!assessment.exempt && assessment.substances.length > 0 && (
+        <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-border">
+            <h3 className="text-sm font-semibold">Substance Details</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Substance</th>
+                  <th>CAS</th>
+                  <th>Category</th>
+                  <th>Processed (kg/yr)</th>
+                  <th>Load to WW (kg/yr)</th>
+                  <th>PEC/PNEC</th>
+                  <th>MEC/PNEC</th>
+                  <th>Risk</th>
+                  <th>Status</th>
+                  <th>Attachments</th>
+                </tr>
+              </thead>
+              <tbody>
+                {assessment.substances.map(s => {
+                  const subAttachments = getSubstanceAttachments(s.id);
+                  return (
+                    <tr key={s.id}>
+                      <td>
+                        <div>
+                          <p className="font-medium text-sm">{s.inn}</p>
+                          {s.riskComment && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5 max-w-[160px] truncate">{s.riskComment}</p>
+                          )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1.5 text-xs"
-                          onClick={() => handleDownloadAttachment(att.name)}
-                        >
-                          <Download className="h-3.5 w-3.5" /> Download
-                        </Button>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="checklist">
-            <div className="space-y-4">
-              {/* Progress */}
-              <div className="bg-card rounded-lg border border-border p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold">Assessment Checklist</h3>
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {completedCount} / {totalCount} complete
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full transition-all duration-500"
-                    style={{ width: `${(completedCount / totalCount) * 100}%` }}
-                  />
-                </div>
-                {completedCount === totalCount && (
-                  <p className="text-xs text-success mt-2 flex items-center gap-1">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    All items confirmed — ready for approval
-                  </p>
-                )}
-                <p className="text-xs text-muted-foreground mt-2">
-                  Items auto-populate based on assessment progress. You can also manually check off items.
-                </p>
-              </div>
-
-              {categories.map(cat => (
-                <div key={cat} className="bg-card rounded-lg border border-border overflow-hidden">
-                  <div className="px-5 py-2.5 bg-muted/30 border-b border-border">
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{cat}</h4>
-                  </div>
-                  <div className="divide-y divide-border/50">
-                    {checkItems
-                      .filter(i => i.category === cat)
-                      .map(item => (
-                        <label
-                          key={item.id}
-                          className="flex items-start gap-3 px-5 py-3 cursor-pointer hover:bg-accent/30 transition-colors"
-                        >
-                          <Checkbox
-                            checked={item.completed}
-                            onCheckedChange={() => toggleCheckItem(item.id)}
-                            className="mt-0.5"
-                          />
-                          <span className={`text-sm ${item.completed ? 'text-muted-foreground line-through' : ''}`}>
-                            {item.text}
-                          </span>
-                        </label>
-                      ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
+                      </td>
+                      <td className="font-mono text-xs">{s.casNumber}</td>
+                      <td className="text-xs capitalize">{s.category?.replace('-', ' ') ?? '—'}</td>
+                      <td className="font-mono text-sm">{s.annualProcessed?.toLocaleString() ?? '—'}</td>
+                      <td className="font-mono text-sm">{s.annualLoadToWastewater?.toFixed(1) ?? '—'}</td>
+                      <td className={`font-mono text-sm font-bold ${(s.pecPnec ?? 0) >= 1 ? 'text-danger' : 'text-success'}`}>
+                        {s.pecPnec?.toFixed(3) ?? '—'}
+                      </td>
+                      <td className={`font-mono text-sm font-bold ${(s.mecPnec ?? 0) >= 1 ? 'text-danger' : s.mecPnec != null ? 'text-success' : ''}`}>
+                        {s.mecPnec != null ? s.mecPnec.toFixed(3) : '—'}
+                      </td>
+                      <td>{s.riskZone && <RiskBadge zone={s.riskZone} />}</td>
+                      <td>
+                        <span className={`text-xs font-medium ${s.complianceStatus === 'compliant' ? 'text-success' : s.complianceStatus === 'non-compliant' ? 'text-danger' : 'text-muted-foreground'}`}>
+                          {s.complianceStatus === 'compliant' ? '✓ Pass' : s.complianceStatus === 'non-compliant' ? '✗ Fail' : s.complianceStatus === 'exempt' ? 'Exempt' : 'Pending'}
+                        </span>
+                      </td>
+                      <td>
+                        {subAttachments.length > 0 ? (
+                          <div className="space-y-1">
+                            {subAttachments.map((att, i) => (
+                              <button key={i} onClick={() => handleDownload(att.name)}
+                                className="flex items-center gap-1 text-xs text-primary hover:underline">
+                                <Download className="h-3 w-3" />
+                                <span className="max-w-[120px] truncate">{att.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {/* Comments */}
       {assessment.comments && (
         <div className="bg-card rounded-lg border border-border p-5">
-          <h3 className="text-sm font-semibold mb-2">Assessment Comments</h3>
+          <h3 className="text-sm font-semibold mb-2">Comments</h3>
           <p className="text-sm text-muted-foreground">{assessment.comments}</p>
         </div>
       )}

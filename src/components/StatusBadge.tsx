@@ -1,4 +1,4 @@
-import { ComplianceStatus, ApprovalStatus } from '@/types/assessment';
+import { ComplianceStatus, ApprovalStatus, RiskZone } from '@/types/assessment';
 import { cn } from '@/lib/utils';
 
 export function StatusBadge({ status }: { status: ComplianceStatus | ApprovalStatus }) {
@@ -12,6 +12,7 @@ export function StatusBadge({ status }: { status: ComplianceStatus | ApprovalSta
     exempt: 'status-badge-draft',
     approved: 'status-badge-compliant',
     'pending-review': 'status-badge-pending',
+    'signed-off': 'status-badge-signed-off',
     locked: 'status-badge-draft',
   };
 
@@ -25,6 +26,7 @@ export function StatusBadge({ status }: { status: ComplianceStatus | ApprovalSta
     exempt: 'Exempt',
     approved: 'Approved',
     'pending-review': 'Pending Review',
+    'signed-off': 'Signed Off',
     locked: 'Locked',
   };
 
@@ -33,4 +35,20 @@ export function StatusBadge({ status }: { status: ComplianceStatus | ApprovalSta
       {labels[status] || status}
     </span>
   );
+}
+
+export function RiskBadge({ zone }: { zone: RiskZone }) {
+  const config: Record<RiskZone, string> = {
+    compliant: 'status-badge-compliant',
+    low: 'bg-[hsl(175,55%,40%)]/10 text-[hsl(175,55%,30%)] border border-[hsl(175,55%,40%)]/20 px-2.5 py-0.5 rounded-full text-xs font-medium',
+    medium: 'status-badge-pending',
+    high: 'status-badge-non-compliant',
+  };
+  const labels: Record<RiskZone, string> = {
+    compliant: 'Compliant',
+    low: 'Low Risk',
+    medium: 'Medium Risk',
+    high: 'High Risk',
+  };
+  return <span className={cn(config[zone])}>{labels[zone]}</span>;
 }
