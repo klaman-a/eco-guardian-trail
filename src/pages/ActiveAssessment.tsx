@@ -23,8 +23,11 @@ const ActiveAssessment = () => {
   const hasData = assessment !== null;
   const milestones = hasData ? getProgressMilestones(assessment) : [];
   const editText = hasData ? getEditButtonText(assessment.status, assessment.reviewStarted) : 'Enter Data';
-
   const ncCount = hasData ? assessment.substances.filter(s => s.complianceStatus === 'non-compliant').length : 0;
+
+  if (isGlobalView) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="space-y-6">
