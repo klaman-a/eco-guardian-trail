@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -41,7 +42,6 @@ const initialCampaigns: Campaign[] = [
   { id: 'C-2025-Q2', quarter: 'Q2', year: 2025, status: 'upcoming', submissionDeadline: '2025-06-30', reviewDeadline: '2025-07-15', sitesSubmitted: 0, totalSites: 4, formulaVersion: 'v2.1', calculationVersion: 'v2.1' },
 ];
 
-// ── User types ──
 interface UserAccess {
   id: string;
   name: string;
@@ -70,6 +70,26 @@ interface FormulaConfig {
   notes: string;
 }
 
+interface AnnualFormulaConfig {
+  substanceName: string;
+  casNumber: string;
+  formulaType: 'standard' | 'custom';
+  divisor: number; // 365
+  useStep2: boolean;
+  customThreshold: number;
+  notes: string;
+}
+
+interface WeeklyFormulaConfig {
+  substanceName: string;
+  casNumber: string;
+  formulaType: 'standard' | 'custom';
+  divisor: number; // 7
+  useStep2: boolean;
+  customThreshold: number;
+  notes: string;
+}
+
 interface ThresholdConfig {
   substanceName: string;
   casNumber: string;
@@ -80,9 +100,14 @@ interface ThresholdConfig {
 
 const CURRENT_FORMULA_VERSION = 'v2.1';
 
-const initialFormulas: FormulaConfig[] = ALL_PRODUCTS.map(p => ({
+const initialAnnualFormulas: AnnualFormulaConfig[] = ALL_PRODUCTS.map(p => ({
   substanceName: p.name, casNumber: p.casNumber,
-  formulaType: 'standard' as const, useStep2: false, customThreshold: 1.0, notes: '',
+  formulaType: 'standard' as const, divisor: 365, useStep2: false, customThreshold: 1.0, notes: '',
+}));
+
+const initialWeeklyFormulas: WeeklyFormulaConfig[] = ALL_PRODUCTS.map(p => ({
+  substanceName: p.name, casNumber: p.casNumber,
+  formulaType: 'standard' as const, divisor: 7, useStep2: false, customThreshold: 1.0, notes: '',
 }));
 
 const initialThresholds: ThresholdConfig[] = ALL_PRODUCTS.map(p => ({
@@ -94,7 +119,8 @@ const AdminPanel = () => {
   const { isGlobalView } = useSiteContext();
   const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [users, setUsers] = useState(initialUsers);
-  const [formulas, setFormulas] = useState(initialFormulas);
+  const [annualFormulas, setAnnualFormulas] = useState(initialAnnualFormulas);
+  const [weeklyFormulas, setWeeklyFormulas] = useState(initialWeeklyFormulas);
   const [thresholds, setThresholds] = useState(initialThresholds);
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [newCampaignOpen, setNewCampaignOpen] = useState(false);
@@ -152,8 +178,12 @@ const AdminPanel = () => {
     }));
   };
 
-  const handleFormulaChange = (index: number, field: keyof FormulaConfig, value: any) => {
-    setFormulas(prev => prev.map((f, i) => i === index ? { ...f, [field]: value } : f));
+  const handleAnnualFormulaChange = (index: number, field: keyof AnnualFormulaConfig, value: any) => {
+    setAnnualFormulas(prev => prev.map((f, i) => i === index ? { ...f, [field]: value } : f));
+  };
+
+  const handleWeeklyFormulaChange = (index: number, field: keyof WeeklyFormulaConfig, value: any) => {
+    setWeeklyFormulas(prev => prev.map((f, i) => i === index ? { ...f, [field]: value } : f));
   };
 
   const handleThresholdChange = (index: number, field: keyof ThresholdConfig, value: any) => {
@@ -217,7 +247,6 @@ const AdminPanel = () => {
               </Dialog>
             </div>
 
-            {/* Active Campaign (large) */}
             {activeCampaign && (
               <div className="bg-card rounded-xl border-2 border-primary/30 shadow-md overflow-hidden">
                 <div className="h-1.5 bg-primary" />
@@ -230,11 +259,9 @@ const AdminPanel = () => {
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">{activeCampaign.id}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => handleCloseCampaign(activeCampaign.id)}>
-                        Close Campaign
-                      </Button>
-                    </div>
+                    <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => handleCloseCampaign(activeCampaign.id)}>
+                      Close Campaign
+                    </Button>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -244,10 +271,8 @@ const AdminPanel = () => {
                     <InfoBlock label="Progress" value={`${activeCampaign.sitesSubmitted} / ${activeCampaign.totalSites} sites`} icon={<Building2 className="h-3.5 w-3.5" />} />
                   </div>
 
-                  <div className="space-y-1.5">
-                    <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${(activeCampaign.sitesSubmitted / activeCampaign.totalSites) * 100}%` }} />
-                    </div>
+                  <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${(activeCampaign.sitesSubmitted / activeCampaign.totalSites) * 100}%` }} />
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -286,7 +311,6 @@ const AdminPanel = () => {
               </div>
             )}
 
-            {/* Other Campaigns Table */}
             {otherCampaigns.length > 0 && (
               <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
                 <div className="px-5 py-3 border-b border-border">
@@ -365,15 +389,10 @@ const AdminPanel = () => {
               <Button size="sm" className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Add User</Button>
             </div>
 
-            {/* Central Admins */}
             <UserSection title="Central Administrators" subtitle="Full platform access — no site assignment needed" icon={<Shield className="h-4 w-4 text-primary" />}
               users={admins} onRemove={handleRemoveUser} editingUser={editingUser} setEditingUser={setEditingUser} onToggleSite={handleToggleSite} showSites={false} />
-
-            {/* Reviewers */}
             <UserSection title="Reviewers" subtitle="Global review access — no site assignment needed" icon={<CheckCircle2 className="h-4 w-4 text-warning" />}
               users={reviewers} onRemove={handleRemoveUser} editingUser={editingUser} setEditingUser={setEditingUser} onToggleSite={handleToggleSite} showSites={false} />
-
-            {/* Site Heads */}
             <UserSection title="Site Heads" subtitle="Assigned to specific sites for data entry and management" icon={<Building2 className="h-4 w-4 text-muted-foreground" />}
               users={siteHeads} onRemove={handleRemoveUser} editingUser={editingUser} setEditingUser={setEditingUser} onToggleSite={handleToggleSite} showSites={true} />
           </div>
@@ -394,7 +413,7 @@ const AdminPanel = () => {
             </div>
 
             <TabsContent value="calculations">
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-lg font-semibold">Calculation Formulas</h2>
@@ -403,41 +422,29 @@ const AdminPanel = () => {
                   <Button size="sm" className="gap-1.5" onClick={handleSaveFormulas}><Save className="h-3.5 w-3.5" /> Save & Version</Button>
                 </div>
 
+                {/* Annual Average */}
                 <div className="space-y-3">
-                  {formulas.map((f, index) => (
-                    <div key={f.casNumber} className="bg-card rounded-lg border border-border shadow-sm p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <FlaskConical className="h-4 w-4 text-primary" />
-                        <h3 className="font-semibold text-sm">{f.substanceName}</h3>
-                        <span className="text-xs text-muted-foreground font-mono">CAS {f.casNumber}</span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Formula Type</Label>
-                          <Select value={f.formulaType} onValueChange={v => handleFormulaChange(index, 'formulaType', v)}>
-                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent className="bg-popover z-50">
-                              <SelectItem value="standard">Standard PEC/PNEC</SelectItem>
-                              <SelectItem value="custom">Custom Threshold</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Compliance Threshold</Label>
-                          <Input type="number" step="0.1" className="h-8 text-xs" value={f.customThreshold}
-                            onChange={e => handleFormulaChange(index, 'customThreshold', parseFloat(e.target.value) || 1.0)} />
-                        </div>
-                        <div className="flex items-end gap-2 pb-0.5">
-                          <Switch checked={f.useStep2} onCheckedChange={v => handleFormulaChange(index, 'useStep2', v)} />
-                          <Label className="text-xs">Step 2 Refinement</Label>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Notes</Label>
-                          <Input className="h-8 text-xs" placeholder="Optional..." value={f.notes}
-                            onChange={e => handleFormulaChange(index, 'notes', e.target.value)} />
-                        </div>
-                      </div>
-                    </div>
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-primary" />
+                    Annual Average Formulas
+                    <span className="text-xs text-muted-foreground font-normal">(Divisor: 365 days)</span>
+                  </h3>
+                  {annualFormulas.map((f, index) => (
+                    <FormulaCard key={f.casNumber} formula={f} index={index}
+                      onChange={(idx, field, val) => handleAnnualFormulaChange(idx, field as any, val)} />
+                  ))}
+                </div>
+
+                {/* Weekly Average */}
+                <div className="space-y-3 pt-4 border-t border-border">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-warning" />
+                    Weekly Average Formulas
+                    <span className="text-xs text-muted-foreground font-normal">(Divisor: 7 days)</span>
+                  </h3>
+                  {weeklyFormulas.map((f, index) => (
+                    <FormulaCard key={f.casNumber} formula={f} index={index}
+                      onChange={(idx, field, val) => handleWeeklyFormulaChange(idx, field as any, val)} />
                   ))}
                 </div>
               </div>
@@ -504,6 +511,48 @@ function InfoBlock({ label, value, icon }: { label: string; value: string; icon:
     <div className="space-y-1">
       <Label className="text-xs text-muted-foreground">{label}</Label>
       <div className="flex items-center gap-1.5 text-sm font-medium">{icon}{value}</div>
+    </div>
+  );
+}
+
+function FormulaCard({ formula, index, onChange }: {
+  formula: { substanceName: string; casNumber: string; formulaType: string; useStep2: boolean; customThreshold: number; notes: string };
+  index: number;
+  onChange: (index: number, field: string, value: any) => void;
+}) {
+  return (
+    <div className="bg-card rounded-lg border border-border shadow-sm p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <FlaskConical className="h-4 w-4 text-primary" />
+        <h3 className="font-semibold text-sm">{formula.substanceName}</h3>
+        <span className="text-xs text-muted-foreground font-mono">CAS {formula.casNumber}</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Formula Type</Label>
+          <Select value={formula.formulaType} onValueChange={v => onChange(index, 'formulaType', v)}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent className="bg-popover z-50">
+              <SelectItem value="standard">Standard PEC/PNEC</SelectItem>
+              <SelectItem value="custom">Custom Threshold</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Compliance Threshold</Label>
+          <Input type="number" step="0.1" className="h-8 text-xs" value={formula.customThreshold}
+            onChange={e => onChange(index, 'customThreshold', parseFloat(e.target.value) || 1.0)} />
+        </div>
+        <div className="flex items-end gap-2 pb-0.5">
+          <Switch checked={formula.useStep2} onCheckedChange={v => onChange(index, 'useStep2', v)} />
+          <Label className="text-xs">Step 2 Refinement</Label>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Notes</Label>
+          <Input className="h-8 text-xs" placeholder="Optional..." value={formula.notes}
+            onChange={e => onChange(index, 'notes', e.target.value)} />
+        </div>
+      </div>
     </div>
   );
 }
