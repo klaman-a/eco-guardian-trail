@@ -26,16 +26,16 @@ export function GraphicalDashboard({
   const [geoFilter, setGeoFilter] = useState('');
 
   const assessments = useMemo(() => {
-    let base = isGlobalView ? mockAssessments : mockAssessments.filter(a => a.siteName === selectedSite);
+    let base = showAll ? mockAssessments : mockAssessments.filter(a => a.siteName === selectedSite);
     if (!showAllHistory && selectedYear !== null && selectedQuarter !== null) {
       base = filterByQuarter(base, selectedYear, selectedQuarter);
     }
-    if (isGlobalView && siteFilter.length > 0) base = base.filter(a => siteFilter.includes(a.siteName));
-    if (isGlobalView && siteTypeFilter) {
+    if (showAll && siteFilter.length > 0) base = base.filter(a => siteFilter.includes(a.siteName));
+    if (showAll && siteTypeFilter) {
       const sites = Object.values(SITE_METADATA).filter(m => m.type === siteTypeFilter).map(m => m.name);
       base = base.filter(a => sites.includes(a.siteName as any));
     }
-    if (isGlobalView && geoFilter) {
+    if (showAll && geoFilter) {
       const sites = Object.values(SITE_METADATA).filter(m => m.geoArea === geoFilter).map(m => m.name);
       base = base.filter(a => sites.includes(a.siteName as any));
     }
@@ -73,7 +73,7 @@ export function GraphicalDashboard({
   const riskOverTime = useMemo(() => {
     return [...AVAILABLE_QUARTERS].reverse().map(q => {
       const qAssessments = filterByQuarter(
-        isGlobalView ? mockAssessments : mockAssessments.filter(a => a.siteName === selectedSite),
+        showAll ? mockAssessments : mockAssessments.filter(a => a.siteName === selectedSite),
         q.year, q.quarter
       );
       const subs = qAssessments.flatMap(a => a.substances);
