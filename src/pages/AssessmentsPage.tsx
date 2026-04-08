@@ -9,7 +9,7 @@ import { useState, useMemo } from 'react';
 import { SubstanceCategory } from '@/types/assessment';
 
 const AssessmentsPage = () => {
-  const { selectedSite, isGlobalView } = useSiteContext();
+  const { selectedSite, isGlobalView, isAuditView } = useSiteContext();
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [selectedQuarter, setSelectedQuarter] = useState<number | null>(null);
   const [showAllHistory, setShowAllHistory] = useState(true);
@@ -20,22 +20,22 @@ const AssessmentsPage = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('');
 
   const assessments = useMemo(() => {
-    let base = isGlobalView ? mockAssessments : mockAssessments.filter(a => a.siteName === selectedSite);
+    let base = (isGlobalView || isAuditView) ? mockAssessments : mockAssessments.filter(a => a.siteName === selectedSite);
 
     if (!showAllHistory && selectedYear !== null && selectedQuarter !== null) {
       base = filterByQuarter(base, selectedYear, selectedQuarter);
     }
 
-    if (isGlobalView && siteFilter.length > 0) {
+    if ((isGlobalView || isAuditView) && siteFilter.length > 0) {
       base = base.filter(a => siteFilter.includes(a.siteName));
     }
 
-    if (isGlobalView && siteTypeFilter) {
+    if ((isGlobalView || isAuditView) && siteTypeFilter) {
       const sitesOfType = Object.values(SITE_METADATA).filter(m => m.type === siteTypeFilter).map(m => m.name);
       base = base.filter(a => sitesOfType.includes(a.siteName as any));
     }
 
-    if (isGlobalView && geoFilter) {
+    if ((isGlobalView || isAuditView) && geoFilter) {
       const sitesInGeo = Object.values(SITE_METADATA).filter(m => m.geoArea === geoFilter).map(m => m.name);
       base = base.filter(a => sitesInGeo.includes(a.siteName as any));
     }
@@ -49,7 +49,7 @@ const AssessmentsPage = () => {
     }
 
     return base;
-  }, [isGlobalView, selectedSite, selectedYear, selectedQuarter, showAllHistory, siteFilter, siteTypeFilter, geoFilter, substanceFilter, categoryFilter]);
+  }, [isGlobalView, isAuditView, selectedSite, selectedYear, selectedQuarter, showAllHistory, siteFilter, siteTypeFilter, geoFilter, substanceFilter, categoryFilter]);
 
   const handleDownloadScorecard = (assessmentId: string) => {
     const blob = new Blob([`Scorecard Report for ${assessmentId}`], { type: 'text/plain' });
@@ -84,7 +84,7 @@ const AssessmentsPage = () => {
         <div>
           <h1 className="text-2xl font-bold">Assessments</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {isGlobalView ? 'All effluent risk assessments across sites' : `Assessments for ${selectedSite}`}
+            {isAuditView ? 'All assessments — audit review (read-only)' : isGlobalView ? 'All effluent risk assessments across sites' : `Assessments for ${selectedSite}`}
           </p>
         </div>
         <QuarterSelector
@@ -110,7 +110,7 @@ const AssessmentsPage = () => {
           )}
         </div>
 
-        {isGlobalView && (
+        {(isGlobalView || isAuditView) && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-muted-foreground w-12">Site:</span>

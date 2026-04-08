@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 const ActiveAssessment = () => {
-  const { selectedSite, isGlobalView } = useSiteContext();
+  const { selectedSite, isGlobalView, isAuditView } = useSiteContext();
 
   const assessment = useMemo(() => {
     if (isGlobalView) return null;
@@ -25,7 +25,7 @@ const ActiveAssessment = () => {
   const editText = hasData ? getEditButtonText(assessment.status, assessment.reviewStarted) : 'Enter Data';
   const ncCount = hasData ? assessment.substances.filter(s => s.complianceStatus === 'non-compliant').length : 0;
 
-  if (isGlobalView) {
+  if (isGlobalView || isAuditView) {
     return <Navigate to="/" replace />;
   }
 
