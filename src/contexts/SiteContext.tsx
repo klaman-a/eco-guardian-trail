@@ -51,23 +51,52 @@ export const SITE_TYPE_LABELS: Record<string, string> = {
   rnd: 'R&D Lab',
 };
 
+export type ViewMode = 'global' | 'audit' | 'site';
+
 interface SiteContextType {
   selectedSite: SiteName | null;
   setSelectedSite: (site: SiteName | null) => void;
   isGlobalView: boolean;
+  isAuditView: boolean;
+  isSiteView: boolean;
+  viewMode: ViewMode;
+  setViewMode: (mode: ViewMode) => void;
 }
 
 const SiteContext = createContext<SiteContextType>({
   selectedSite: null,
   setSelectedSite: () => {},
   isGlobalView: true,
+  isAuditView: false,
+  isSiteView: false,
+  viewMode: 'global',
+  setViewMode: () => {},
 });
 
 export function SiteProvider({ children }: { children: ReactNode }) {
   const [selectedSite, setSelectedSite] = useState<SiteName | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('global');
+
+  const handleSetSite = (site: SiteName | null) => {
+    setSelectedSite(site);
+    if (site) setViewMode('site');
+  };
+
+  const handleSetViewMode = (mode: ViewMode) => {
+    setViewMode(mode);
+    if (mode !== 'site') setSelectedSite(null);
+  };
 
   return (
-    <SiteContext.Provider value={{ selectedSite, setSelectedSite, isGlobalView: selectedSite === null }}>
+    <SiteContext.Provider value={{
+      selectedSite,
+      setSelectedSite: handleSetSite,
+      isGlobalView: viewMode === 'global',
+      isAuditView: viewMode === 'audit',
+      isSiteView: viewMode === 'site',
+      viewMode,
+      setViewMode: handleSetViewMode,
+    }}>
       {children}
     </SiteContext.Provider>
   );
