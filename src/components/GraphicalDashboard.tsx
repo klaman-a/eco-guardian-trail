@@ -19,7 +19,8 @@ export function GraphicalDashboard({
   selectedYear, selectedQuarter, showAllHistory,
   onYearChange, onQuarterChange, onToggleAllHistory,
 }: GraphicalDashboardProps) {
-  const { selectedSite, isGlobalView } = useSiteContext();
+  const { selectedSite, isGlobalView, isAuditView } = useSiteContext();
+  const showAll = isGlobalView || isAuditView;
   const [siteFilter, setSiteFilter] = useState<string[]>([]);
   const [siteTypeFilter, setSiteTypeFilter] = useState('');
   const [geoFilter, setGeoFilter] = useState('');
