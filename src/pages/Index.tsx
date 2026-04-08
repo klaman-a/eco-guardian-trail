@@ -17,17 +17,17 @@ import { Button } from '@/components/ui/button';
 type MetricFilter = 'all' | 'signed-off' | 'outstanding' | 'in-review' | 'approved' | 'pending-review';
 
 const Dashboard = () => {
-  const { selectedSite, isGlobalView } = useSiteContext();
+  const { selectedSite, isGlobalView, isAuditView } = useSiteContext();
   const [activeFilter, setActiveFilter] = useState<MetricFilter>('all');
   const [selectedYear, setSelectedYear] = useState<number | null>(CURRENT_QUARTER.year);
   const [selectedQuarter, setSelectedQuarter] = useState<number | null>(CURRENT_QUARTER.quarter);
   const [showAllHistory, setShowAllHistory] = useState(false);
 
   const siteAssessments = useMemo(() => {
-    const base = isGlobalView ? mockAssessments : mockAssessments.filter(a => a.siteName === selectedSite);
+    const base = (isGlobalView || isAuditView) ? mockAssessments : mockAssessments.filter(a => a.siteName === selectedSite);
     if (showAllHistory) return base;
     return filterByQuarter(base, selectedYear, selectedQuarter);
-  }, [isGlobalView, selectedSite, selectedYear, selectedQuarter, showAllHistory]);
+  }, [isGlobalView, isAuditView, selectedSite, selectedYear, selectedQuarter, showAllHistory]);
 
   const signedOffCount = siteAssessments.filter(a => a.status === 'signed-off').length;
   const approvedCount = siteAssessments.filter(a => a.status === 'approved').length;
@@ -70,7 +70,7 @@ const Dashboard = () => {
         <div>
           <h1 className="text-2xl font-bold">Compliance Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {isGlobalView ? 'Environmental risk overview across all sites' : `Overview for ${selectedSite}`}
+            {isAuditView ? 'Audit overview — all sites (read-only)' : isGlobalView ? 'Environmental risk overview across all sites' : `Overview for ${selectedSite}`}
           </p>
         </div>
       </div>
@@ -233,7 +233,7 @@ const Dashboard = () => {
                           <Eye className="h-3 w-3" /> {isGlobalView ? 'Review' : 'View'}
                         </Button>
                       </Link>
-                      {isGlobalView && (
+                      {isGlobalView && !isAuditView && (
                         <Button variant="default" size="sm" className="h-7 text-xs gap-1">
                           <CheckCircle2 className="h-3 w-3" /> Approve
                         </Button>
