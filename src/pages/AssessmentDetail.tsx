@@ -1,21 +1,41 @@
 import { useParams, Link } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { mockAssessments } from '@/data/mockData';
+import { getAuditTrail, getAuditFindings, AuditFinding } from '@/data/auditTrail';
 import { useSiteContext } from '@/contexts/SiteContext';
 import { StatusBadge, RiskBadge } from '@/components/StatusBadge';
 import { getEditButtonText } from '@/types/assessment';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   ArrowLeft, Calendar, User, FileText, Shield,
   AlertTriangle, Recycle, Download, Edit3, CheckCircle2,
-  Plus, Lock, Paperclip,
+  Plus, Lock, Paperclip, ScanEye, Clock, MessageSquarePlus,
+  ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
+const SEVERITY_COLORS: Record<AuditFinding['severity'], string> = {
+  observation: 'bg-muted text-muted-foreground',
+  minor: 'bg-amber-500/10 text-amber-700',
+  major: 'bg-orange-500/10 text-orange-700',
+  critical: 'bg-danger/10 text-danger',
+};
 
 const AssessmentDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { isGlobalView } = useSiteContext();
+  const { isGlobalView, isAuditView, isSiteView } = useSiteContext();
   const assessment = mockAssessments.find((a) => a.id === id);
+
+  const [showAuditTrail, setShowAuditTrail] = useState(true);
+  const [showAddFinding, setShowAddFinding] = useState(false);
+  const [newFindingTitle, setNewFindingTitle] = useState('');
+  const [newFindingDesc, setNewFindingDesc] = useState('');
+  const [newFindingSeverity, setNewFindingSeverity] = useState<AuditFinding['severity']>('observation');
+  const [localFindings, setLocalFindings] = useState<AuditFinding[]>([]);
 
   if (!assessment) {
     return (
@@ -27,11 +47,14 @@ const AssessmentDetail = () => {
   }
 
   const isCurrentQuarter = assessment.reportingPeriod.includes('2025');
-  const editText = !isGlobalView && isCurrentQuarter ? getEditButtonText(assessment.status, assessment.reviewStarted) : null;
-  const canApprove = isGlobalView && assessment.status === 'pending-review';
+  const editText = isSiteView && isCurrentQuarter ? getEditButtonText(assessment.status, assessment.reviewStarted) : null;
+  const canApprove = isGlobalView && !isAuditView && assessment.status === 'pending-review';
 
   const generalAttachments = (assessment.attachments || []).filter(a => !a.substanceId);
   const getSubstanceAttachments = (subId: string) => (assessment.attachments || []).filter(a => a.substanceId === subId);
+
+  const auditTrail = getAuditTrail(assessment.id);
+  const auditFindings = [...getAuditFindings(assessment.id), ...localFindings.filter(f => f.assessmentId === assessment.id)];
 
   const handleApprove = () => {
     toast({ title: 'Assessment Approved', description: `${assessment.id} has been approved.` });
@@ -60,6 +83,29 @@ const AssessmentDetail = () => {
     toast({ title: 'Report Downloaded', description: 'Assessment report has been downloaded.' });
   };
 
+  const handleAddFinding = () => {
+    if (!newFindingTitle.trim()) return;
+    const finding: AuditFinding = {
+      id: `af-local-${Date.now()}`,
+      assessmentId: assessment.id,
+      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16),
+      auditor: 'Current Auditor',
+      severity: newFindingSeverity,
+      title: newFindingTitle,
+      description: newFindingDesc,
+      status: 'open',
+    };
+    setLocalFindings(prev => [...prev, finding]);
+    setNewFindingTitle('');
+    setNewFindingDesc('');
+    setShowAddFinding(false);
+    toast({ title: 'Finding Added', description: 'Audit finding has been recorded.' });
+  };
+
+  const CATEGORY_ICONS: Record<string, string> = {
+    status: '📋', edit: '✏️', approval: '✅', comment: '💬', attachment: '📎',
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -72,11 +118,16 @@ const AssessmentDetail = () => {
             <div className="flex items-center gap-2.5 mb-1">
               <h1 className="text-xl font-bold">{assessment.siteName}</h1>
               <StatusBadge status={assessment.status} />
+              {isAuditView && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium bg-amber-500/10 text-amber-700 px-2 py-0.5 rounded-full">
+                  <ScanEye className="h-3 w-3" /> Audit Mode
+                </span>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">{assessment.operationalUnit}</p>
           </div>
           <div className="flex items-center gap-2">
-            {editText && (
+            {!isAuditView && editText && (
               <Link to="/data-entry">
                 <Button variant={editText === 'Request Edit' ? 'outline' : 'default'} size="sm" className="gap-1.5">
                   {editText === 'Request Edit' ? <Lock className="h-3.5 w-3.5" /> :
@@ -86,7 +137,7 @@ const AssessmentDetail = () => {
                 </Button>
               </Link>
             )}
-            {canApprove && (
+            {!isAuditView && canApprove && (
               <Button size="sm" className="gap-1.5" onClick={handleApprove}>
                 <CheckCircle2 className="h-3.5 w-3.5" /> Approve
               </Button>
@@ -101,7 +152,7 @@ const AssessmentDetail = () => {
           <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{assessment.reportingPeriod}</span>
           <span className="flex items-center gap-1"><User className="h-3.5 w-3.5" />Owner: {assessment.owner}</span>
           <span className="flex items-center gap-1"><User className="h-3.5 w-3.5" />HSEO: {assessment.siteHSEO}</span>
-          {isGlobalView && (
+          {(isGlobalView || isAuditView) && (
             <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded">
               Formula {assessment.formulaVersion} · Calc {assessment.calculationVersion}
             </span>
@@ -246,6 +297,129 @@ const AssessmentDetail = () => {
           <p className="text-sm text-muted-foreground">{assessment.comments}</p>
         </div>
       )}
+
+      {/* Audit Trail — visible to all, prominent for auditors */}
+      <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
+        <button
+          onClick={() => setShowAuditTrail(!showAuditTrail)}
+          className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-muted/30 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Audit Trail</h3>
+            <span className="text-xs text-muted-foreground">({auditTrail.length} events)</span>
+          </div>
+          {showAuditTrail ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        </button>
+        {showAuditTrail && (
+          <div className="border-t border-border">
+            {auditTrail.length === 0 ? (
+              <p className="px-5 py-6 text-sm text-muted-foreground text-center">No audit trail events recorded.</p>
+            ) : (
+              <div className="relative px-5 py-4">
+                <div className="absolute left-[39px] top-4 bottom-4 w-px bg-border" />
+                <div className="space-y-4">
+                  {auditTrail.map((event) => (
+                    <div key={event.id} className="flex gap-3 relative">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs z-10">
+                        {CATEGORY_ICONS[event.category] || '📋'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <p className="text-sm font-medium">{event.action}</p>
+                          <span className="text-[10px] text-muted-foreground font-mono">{event.timestamp}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{event.details}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">by {event.user}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Audit Findings — visible to all, editable by auditors */}
+      <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+          <div className="flex items-center gap-2">
+            <ScanEye className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Audit Findings</h3>
+            <span className="text-xs text-muted-foreground">({auditFindings.length})</span>
+          </div>
+          {isAuditView && (
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setShowAddFinding(!showAddFinding)}>
+              <MessageSquarePlus className="h-3.5 w-3.5" /> Add Finding
+            </Button>
+          )}
+        </div>
+
+        {/* Add finding form */}
+        {isAuditView && showAddFinding && (
+          <div className="px-5 py-4 border-b border-border bg-muted/20 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Title</label>
+                <Input value={newFindingTitle} onChange={e => setNewFindingTitle(e.target.value)} placeholder="Finding title..." className="text-sm h-8" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Severity</label>
+                <Select value={newFindingSeverity} onValueChange={(v) => setNewFindingSeverity(v as AuditFinding['severity'])}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover">
+                    <SelectItem value="observation">Observation</SelectItem>
+                    <SelectItem value="minor">Minor</SelectItem>
+                    <SelectItem value="major">Major</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Description</label>
+              <Textarea value={newFindingDesc} onChange={e => setNewFindingDesc(e.target.value)} placeholder="Describe the finding..." className="text-sm min-h-[60px]" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setShowAddFinding(false)}>Cancel</Button>
+              <Button size="sm" onClick={handleAddFinding} disabled={!newFindingTitle.trim()}>Submit Finding</Button>
+            </div>
+          </div>
+        )}
+
+        <div className="divide-y divide-border/50">
+          {auditFindings.length === 0 ? (
+            <p className="px-5 py-6 text-sm text-muted-foreground text-center">No audit findings recorded.</p>
+          ) : (
+            auditFindings.map(f => (
+              <div key={f.id} className="px-5 py-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={cn('text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded', SEVERITY_COLORS[f.severity])}>
+                        {f.severity}
+                      </span>
+                      <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded',
+                        f.status === 'open' ? 'bg-danger/10 text-danger' :
+                        f.status === 'acknowledged' ? 'bg-warning/10 text-warning' :
+                        'bg-success/10 text-success'
+                      )}>
+                        {f.status}
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium">{f.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{f.description}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">by {f.auditor} · {f.timestamp}</p>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 };
