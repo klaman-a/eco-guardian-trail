@@ -139,7 +139,7 @@ export function GraphicalDashboard({
   return (
     <div className="space-y-6">
       {/* Filters for global */}
-      {isGlobalView && (
+      {showAll && (
         <div className="bg-card rounded-lg border border-border p-4">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-xs font-semibold text-muted-foreground">Filters:</span>
